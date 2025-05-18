@@ -11,7 +11,7 @@
 
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
     
-<script type="module" nonce="dHU6J7RbMWQ/97mQfV169Q==">
+<script type="module" nonce="MHxFgv32R+T809Rvc0d8EA==">
 import init, * as bindings from '/wordle.js';
 const wasm = await init({ module_or_path: '/wordle_bg.wasm' });
 
@@ -123,7 +123,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             }
         }
     </style>
-<link rel="modulepreload" href="/wordle.js" crossorigin=anonymous integrity="sha384-0GzE+HVu0eoIih+HLtWm0gTOujfo5fp7P4Uf11luzcoPDuc9VsGBYNqH+JpXrpQN"><link rel="preload" href="/wordle_bg.wasm" crossorigin=anonymous integrity="sha384-HyOTT5og/CVZrrBgAj9PCgyS2bO5XjU88fiazI6eb/cznqEPi72oaclZMpxux3gk" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/wordle.js" crossorigin=anonymous integrity="sha384-LPc+HoZL6Qd3SPBCnksb+xawi3XD2/L2gr8/ZzFGP8E+afKC7o6F6KqwEu7/PbWR"><link rel="preload" href="/wordle_bg.wasm" crossorigin=anonymous integrity="sha384-3VlZHyd4Sh7/AqqOPNDZFNBXcIRnQgrbcZce5hossrM8UKUJdLzFTErD/W5LGAHi" as="fetch" type="application/wasm"></head>
 
 <body>
     <!-- The WASM code will resize the canvas dynamically -->

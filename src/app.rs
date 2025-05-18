@@ -28,6 +28,7 @@ impl WordleApp {
                     *size = if new_size > 1. { new_size } else { 1. }
                 });
             });
+
             return app;
         }
 
@@ -74,9 +75,15 @@ impl WordleApp {
                     let Some(previous) = previous else {
                         break;
                     };
-                    for x in previous {
+                    for &x in previous {
                         ui.group(|ui| {
-                            ui.add_enabled(false, egui::SelectableLabel::new(false, x.to_string()));
+                            ui.add_enabled(
+                                false,
+                                egui::SelectableLabel::new(
+                                    false,
+                                    egui::RichText::new(x).family(egui::FontFamily::Monospace),
+                                ),
+                            );
                         });
                     }
                     ui.end_row();
@@ -88,7 +95,8 @@ impl WordleApp {
                         if ui
                             .selectable_label(
                                 i == self.current_selected,
-                                x.map(|x| x.to_string()).unwrap_or("  ".to_string()),
+                                egui::RichText::new(x.unwrap_or(' '))
+                                    .family(egui::FontFamily::Monospace),
                             )
                             .clicked()
                         {
@@ -109,7 +117,10 @@ impl WordleApp {
                         ui.group(|ui| {
                             ui.add_enabled(
                                 false,
-                                egui::SelectableLabel::new(false, "  ".to_string()),
+                                egui::SelectableLabel::new(
+                                    false,
+                                    egui::RichText::new(" ").family(egui::FontFamily::Monospace),
+                                ),
                             );
                         });
                     }
