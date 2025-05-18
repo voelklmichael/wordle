@@ -281,7 +281,7 @@ impl eframe::App for WordleApp {
                 }
             });
             ui.heading("Wordle");
-            ui.label(format!("{:?}", self.current_target));
+            //ui.label(format!("{:?}", self.current_target));
 
             self.draw_letter_grid(ui);
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
