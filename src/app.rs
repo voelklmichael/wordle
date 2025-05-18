@@ -19,6 +19,9 @@ pub struct WordleApp {
 
 impl WordleApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        cc.egui_ctx.style_mut(|style| {
+            style.text_styles.iter_mut().for_each(|x| x.1.size = 30.);
+        });
         if let Some(storage) = cc.storage {
             let app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
             cc.egui_ctx.style_mut(|style| {
@@ -145,7 +148,7 @@ impl WordleApp {
             .show_separator_line(false)
             .show_inside(ui, |_| {});
         egui::SidePanel::left("letter_remove_current")
-            .max_width(15.)
+            .max_width(24.)
             .resizable(false)
             .show_separator_line(false)
             .show_inside(ui, |ui| {
@@ -167,7 +170,7 @@ impl WordleApp {
             .show_separator_line(false)
             .show_inside(ui, |_| {});
         egui::SidePanel::right("letter_enter_current_word")
-            .max_width(15.)
+            .max_width(24.)
             .resizable(false)
             .show_separator_line(false)
             .show_inside(ui, |ui| {
@@ -300,7 +303,7 @@ impl eframe::App for WordleApp {
                     });
                 }
             });
-            ui.heading("Wordle");
+            //ui.heading("Wordle");
             //ui.label(format!("{:?}", self.current_target));
 
             self.draw_letter_grid(ui);
