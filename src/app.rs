@@ -222,12 +222,7 @@ impl WordleApp {
         let guess = self.current_guess.map(|x| x.unwrap());
         let guess_lowercase = guess.map(|x| x.to_lowercase().to_string().chars().next().unwrap());
         if self.wordlist.contains(&guess_lowercase) {
-            if let Some(entry) = self
-                .previous_guesses
-                .iter_mut()
-                .skip_while(|x| x.is_some())
-                .next()
-            {
+            if let Some(entry) = self.previous_guesses.iter_mut().find(|x| x.is_none()) {
                 *entry = Some(guess);
             } else {
                 panic!("This should never happen!")
