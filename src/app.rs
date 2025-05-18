@@ -75,15 +75,24 @@ impl WordleApp {
                     let Some(previous) = previous else {
                         break;
                     };
-                    for &x in previous {
+                    let Some(target) = self.current_target else {
+                        self.error_message = Some("Target not set - this is a bug".into());
+                        return;
+                    };
+                    let target = target.map(|x| x.to_uppercase().into_iter().next().unwrap());
+                    for (&p, t) in previous.iter().zip(target) {
+                        let text = egui::RichText::new(p).family(egui::FontFamily::Monospace);
+                        let text = if p == t {
+                            text.background_color(egui::Color32::GREEN)
+                                .color(egui::Color32::BLACK)
+                        } else if target.contains(&p) {
+                            text.background_color(egui::Color32::YELLOW)
+                                .color(egui::Color32::BLACK)
+                        } else {
+                            text
+                        };
                         ui.group(|ui| {
-                            ui.add_enabled(
-                                false,
-                                egui::SelectableLabel::new(
-                                    false,
-                                    egui::RichText::new(x).family(egui::FontFamily::Monospace),
-                                ),
-                            );
+                            ui.add_enabled(false, egui::SelectableLabel::new(false, text));
                         });
                     }
                     ui.end_row();
