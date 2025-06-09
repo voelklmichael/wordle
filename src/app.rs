@@ -331,7 +331,6 @@ impl eframe::App for WordleApp {
                 }
 
                 if let Some(won) = self.game_is_won {
-                    ui.label("The game is over!");
                     let target: String = self
                         .current_target
                         .as_ref()
@@ -340,9 +339,23 @@ impl eframe::App for WordleApp {
                         .into_iter()
                         .map(|x| x.to_ascii_uppercase().to_string())
                         .collect();
-                    ui.label(format!("The hidden word was: {target}"));
+                    ui.add(
+                        egui::Hyperlink::from_label_and_url(
+                            target,
+                            format!(
+                                "https://de.wiktionary.org/wiki/{}",
+                                self.current_target.as_ref().unwrap().link
+                            ),
+                        )
+                        .open_in_new_tab(true),
+                    );
+                    ui.label("The hidden word was:");
                     let msg = if won { "You won!" } else { "You lost!" };
+                    if ui.button("New game").clicked() {
+                        self.new_game();
+                    }
                     ui.label(msg);
+                    ui.label("The game is over!");
                 } else {
                     self.draw_letter_selection(ui);
                 }
