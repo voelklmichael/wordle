@@ -77,7 +77,7 @@ impl Statistics {
                     .allow_double_click_reset(false)
                     .allow_drag(false)
                     .allow_zoom(false)
-                    .default_x_bounds(1., TRY_COUNT as _)
+                    .default_x_bounds(1., TRY_COUNT as f64 + 0.2)
                     //.cursor_color(egui::Color32::TRANSPARENT)
                     .sense(egui::Sense::empty())
                     .label_formatter(|_, _| Default::default())
