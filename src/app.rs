@@ -15,6 +15,8 @@ pub struct WordleApp {
     current_selected: usize,
     game_is_won: Option<bool>,
     error_message: Option<String>,
+    #[serde(default)]
+    statistics: crate::statistics::Statistics,
 }
 
 impl WordleApp {
@@ -67,6 +69,7 @@ impl WordleApp {
         self.current_selected = 0;
         self.game_is_won = None;
         self.error_message = None;
+        self.statistics.new_game();
     }
 
     fn draw_letter_grid(&mut self, ui: &mut egui::Ui) {
@@ -273,8 +276,15 @@ impl WordleApp {
             }
             if guess_lowercase == self.current_target.as_ref().unwrap().word {
                 self.game_is_won = Some(true);
+                self.statistics.game_completed(Some(
+                    self.previous_guesses
+                        .iter()
+                        .take_while(|x| x.is_some())
+                        .count(),
+                ));
             } else if self.previous_guesses.iter().all(|x| x.is_some()) {
                 self.game_is_won = Some(false);
+                self.statistics.game_completed(None);
             }
             self.current_selected = 0;
             self.current_guess = Default::default();
