@@ -59,6 +59,117 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'wiktionary_check'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=wiktionary_check",
+                    "--package=wordle"
+                ],
+                "filter": {
+                    "name": "wiktionary_check",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'wiktionary_check'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=wiktionary_check",
+                    "--package=wordle"
+                ],
+                "filter": {
+                    "name": "wiktionary_check",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'wiktionary_download'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=wiktionary_download",
+                    "--package=wordle"
+                ],
+                "filter": {
+                    "name": "wiktionary_download",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'wiktionary_download'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=wiktionary_download",
+                    "--package=wordle"
+                ],
+                "filter": {
+                    "name": "wiktionary_download",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'wiktionary_parse'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=wiktionary_parse",
+                    "--package=wordle"
+                ],
+                "filter": {
+                    "name": "wiktionary_parse",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'wiktionary_parse'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=wiktionary_parse",
+                    "--package=wordle"
+                ],
+                "filter": {
+                    "name": "wiktionary_parse",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
