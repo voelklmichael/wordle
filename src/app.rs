@@ -1,4 +1,4 @@
-use crate::wordlist::{self, CHAR_COUNT, TargetWord};
+use crate::wordlist::{self, CHAR_COUNT, TargetWord, WordWithLink};
 
 pub const TRY_COUNT: usize = 6;
 
@@ -7,11 +7,11 @@ pub const TRY_COUNT: usize = 6;
 pub struct WordleApp {
     font_size_adjustment: f32,
     #[serde(skip)]
-    wordlist: Vec<TargetWord>,
+    wordlist: Vec<WordWithLink>,
     used_targets: std::collections::HashSet<TargetWord>,
-    current_target: Option<TargetWord>,
+    current_target: Option<WordWithLink>,
     current_guess: [Option<char>; CHAR_COUNT],
-    previous_guesses: [Option<TargetWord>; TRY_COUNT],
+    previous_guesses: [Option<WordWithLink>; TRY_COUNT],
     current_selected: usize,
     game_is_won: Option<bool>,
     error_message: Option<String>,
@@ -53,13 +53,13 @@ impl WordleApp {
                 continue;
             }
             let index = random % words;
-            let target = self.wordlist[index as usize];
-            if self.used_targets.contains(&target) {
+            let target = self.wordlist[index as usize].clone();
+            if self.used_targets.contains(&target.word) {
                 continue;
             }
             break target;
         };
-        assert!(self.used_targets.insert(target));
+        assert!(self.used_targets.insert(target.word));
 
         self.current_target = Some(target);
         self.previous_guesses = Default::default();
@@ -71,19 +71,21 @@ impl WordleApp {
 
     fn draw_letter_grid(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("letter_grid")
-            .num_columns(CHAR_COUNT)
+            .num_columns(CHAR_COUNT + 1)
             .show(ui, |ui| {
                 // previous guesses
                 for previous in &self.previous_guesses {
                     let Some(previous) = previous else {
                         break;
                     };
-                    let Some(target) = self.current_target else {
+                    let Some(target) = &self.current_target else {
                         self.error_message = Some("Target not set - this is a bug".into());
                         return;
                     };
-                    let target = target.map(|x| x.to_uppercase().into_iter().next().unwrap());
-                    for (&p, t) in previous.iter().zip(target) {
+                    let target = target
+                        .word
+                        .map(|x| x.to_uppercase().into_iter().next().unwrap());
+                    for (&p, t) in previous.word.iter().zip(target) {
                         let text = egui::RichText::new(p).family(egui::FontFamily::Monospace);
                         let text = if p == t {
                             text.background_color(egui::Color32::GREEN)
@@ -98,32 +100,44 @@ impl WordleApp {
                             ui.add_enabled(false, egui::SelectableLabel::new(false, text));
                         });
                     }
+                    ui.add(
+                        egui::Hyperlink::from_label_and_url(
+                            "🏷",
+                            format!("https://de.wiktionary.org/wiki/{}", previous.link),
+                        )
+                        .open_in_new_tab(true),
+                    );
                     ui.end_row();
                 }
 
                 // current guess
-                for (i, x) in self.current_guess.iter_mut().enumerate() {
-                    ui.group(|ui| {
-                        if ui
-                            .selectable_label(
-                                i == self.current_selected,
-                                egui::RichText::new(x.unwrap_or(' '))
-                                    .family(egui::FontFamily::Monospace),
-                            )
-                            .clicked()
-                        {
-                            self.current_selected = i;
-                        }
-                    });
-                }
-                ui.end_row();
+                let skip_current = if self.game_is_won.is_none() {
+                    for (i, x) in self.current_guess.iter_mut().enumerate() {
+                        ui.group(|ui| {
+                            if ui
+                                .selectable_label(
+                                    i == self.current_selected,
+                                    egui::RichText::new(x.unwrap_or(' '))
+                                        .family(egui::FontFamily::Monospace),
+                                )
+                                .clicked()
+                            {
+                                self.current_selected = i;
+                            }
+                        });
+                    }
+                    ui.end_row();
+                    1
+                } else {
+                    0
+                };
 
                 // remaining rows
                 for _ in self
                     .previous_guesses
                     .iter()
                     .skip_while(|x| x.is_some())
-                    .skip(1)
+                    .skip(skip_current)
                 {
                     for _ in 0..CHAR_COUNT {
                         ui.group(|ui| {
@@ -192,20 +206,23 @@ impl WordleApp {
                 ui.horizontal_wrapped(|ui| {
                     let alphabet = "abcdefghijklmnopqrstuvwxyz";
                     for letter in alphabet.chars() {
-                        let target_contains_letter = self
-                            .current_target
-                            .map(|x| x.contains(&letter))
-                            .unwrap_or_default();
                         let letter = letter.to_uppercase();
                         let letter = letter.to_string().chars().next().unwrap();
+                        let target_contains_letter = self
+                            .current_target
+                            .as_ref()
+                            .map(|x| x.word.contains(&letter))
+                            .unwrap_or_default();
                         let previous_contains_letter = self
                             .previous_guesses
                             .iter()
-                            .filter_map(|x| x.map(|x| x.contains(&letter)))
+                            .filter_map(|x| x.as_ref().map(|x| x.word.contains(&letter)))
                             .any(|x| x);
                         let button = if previous_contains_letter {
                             egui::Button::new(
-                                egui::RichText::new(letter.to_string()).color(egui::Color32::BLACK),
+                                egui::RichText::new(letter.to_string())
+                                    .color(egui::Color32::BLACK)
+                                    .family(egui::FontFamily::Monospace),
                             )
                             .fill(if target_contains_letter {
                                 egui::Color32::GREEN
@@ -243,14 +260,15 @@ impl WordleApp {
             return;
         }
         let guess = self.current_guess.map(|x| x.unwrap());
-        let guess_lowercase = guess.map(|x| x.to_lowercase().to_string().chars().next().unwrap());
-        if self.wordlist.contains(&guess_lowercase) {
+        let guess_lowercase =
+            guess.map(|x| x.to_ascii_uppercase().to_string().chars().next().unwrap());
+        if let Some(guess_in_wordlist) = self.wordlist.iter().find(|x| x.word == guess_lowercase) {
             if let Some(entry) = self.previous_guesses.iter_mut().find(|x| x.is_none()) {
-                *entry = Some(guess);
+                *entry = Some(guess_in_wordlist.clone());
             } else {
                 panic!("This should never happen!")
             }
-            if Some(guess_lowercase) == self.current_target {
+            if guess_lowercase == self.current_target.as_ref().unwrap().word {
                 self.game_is_won = Some(true);
             } else if self.previous_guesses.iter().all(|x| x.is_some()) {
                 self.game_is_won = Some(false);
@@ -316,6 +334,8 @@ impl eframe::App for WordleApp {
                     ui.label("The game is over!");
                     let target: String = self
                         .current_target
+                        .as_ref()
+                        .map(|x| x.word)
                         .unwrap_or_default()
                         .into_iter()
                         .map(|x| x.to_ascii_uppercase().to_string())

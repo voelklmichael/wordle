@@ -1,7 +1,7 @@
 pub const CHAR_COUNT: usize = 5;
 pub type TargetWord = [char; CHAR_COUNT];
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub struct WordWithLink {
     pub link: String,
     pub word: TargetWord,
