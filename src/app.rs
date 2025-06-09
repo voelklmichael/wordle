@@ -230,7 +230,10 @@ impl WordleApp {
                                 egui::Color32::RED
                             })
                         } else {
-                            egui::Button::new(letter.to_string())
+                            egui::Button::new(
+                                egui::RichText::new(letter.to_string())
+                                    .family(egui::FontFamily::Monospace),
+                            )
                         };
                         if egui::Widget::ui(button, ui).clicked() {
                             self.current_guess[self.current_selected] = Some(letter);
