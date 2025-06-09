@@ -4,7 +4,7 @@ pub const TRY_COUNT: usize = 6;
 
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct WordleApp {
+pub struct WordleAppState {
     font_size_adjustment: f32,
     #[serde(skip)]
     wordlist: Vec<WordWithLink>,
@@ -19,6 +19,55 @@ pub struct WordleApp {
     statistics: crate::statistics::Statistics,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(default)]
+pub struct WordleApp {
+    state: WordleAppState,
+    #[serde(skip, default = "default_tabs")]
+    tabs: egui_dock::DockState<Tab>,
+}
+
+struct TabViewer<'a> {
+    state: &'a mut WordleAppState,
+}
+impl<'a> egui_dock::TabViewer for TabViewer<'a> {
+    type Tab = Tab;
+
+    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
+        match tab {
+            Tab::Game => "Game".into(),
+            Tab::Statistics => "Statistics".into(),
+        }
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
+        match tab {
+            Tab::Game => self.state.update(ui),
+            Tab::Statistics => self.state.statistics.show(ui),
+        }
+    }
+    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
+        false
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+enum Tab {
+    Game,
+    Statistics,
+}
+fn default_tabs() -> egui_dock::DockState<Tab> {
+    egui_dock::DockState::new([Tab::Game, Tab::Statistics].into())
+}
+impl Default for WordleApp {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            tabs: default_tabs(),
+        }
+    }
+}
+
 impl WordleApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         cc.egui_ctx.style_mut(|style| {
@@ -29,7 +78,7 @@ impl WordleApp {
             cc.egui_ctx.style_mut(|style| {
                 style.text_styles.iter_mut().for_each(|font| {
                     let size = &mut font.1.size;
-                    let new_size = *size + app.font_size_adjustment;
+                    let new_size = *size + app.state.font_size_adjustment;
                     *size = if new_size > 1. { new_size } else { 1. }
                 });
             });
@@ -39,7 +88,8 @@ impl WordleApp {
 
         Default::default()
     }
-
+}
+impl WordleAppState {
     fn new_game(&mut self) {
         let target = loop {
             let random = match getrandom::u32() {
@@ -300,6 +350,17 @@ impl eframe::App for WordleApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let Self { state, tabs } = self;
+        egui_dock::DockArea::new(tabs)
+            .style(egui_dock::Style::from_egui(ctx.style().as_ref()))
+            .draggable_tabs(false)
+            .show_add_buttons(false)
+            .show_leaf_collapse_buttons(false)
+            .show(ctx, &mut TabViewer { state });
+    }
+}
+impl WordleAppState {
+    fn update(&mut self, ui: &mut egui::Ui) {
         if self.wordlist.is_empty() {
             self.wordlist = wordlist::wordlist_german();
         }
@@ -307,72 +368,70 @@ impl eframe::App for WordleApp {
             self.new_game();
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                egui::widgets::global_theme_preference_switch(ui);
-                if ui.button("New Game").clicked() {
-                    self.new_game()
-                }
-                if ui.button("+").clicked() {
-                    self.font_size_adjustment += 1.;
-                    ctx.style_mut(|style| {
-                        style
-                            .text_styles
-                            .iter_mut()
-                            .for_each(|font| font.1.size += 1.);
+        egui::menu::bar(ui, |ui| {
+            egui::widgets::global_theme_preference_switch(ui);
+            if ui.button("New Game").clicked() {
+                self.new_game()
+            }
+            if ui.button("+").clicked() {
+                self.font_size_adjustment += 1.;
+                ui.ctx().style_mut(|style| {
+                    style
+                        .text_styles
+                        .iter_mut()
+                        .for_each(|font| font.1.size += 1.);
+                });
+            }
+            if ui.button("-").clicked() {
+                self.font_size_adjustment -= 1.;
+                ui.ctx().style_mut(|style| {
+                    style.text_styles.iter_mut().for_each(|font| {
+                        let size = &mut font.1.size;
+                        if *size >= 2. {
+                            *size -= 1.;
+                        }
                     });
-                }
-                if ui.button("-").clicked() {
-                    self.font_size_adjustment -= 1.;
-                    ctx.style_mut(|style| {
-                        style.text_styles.iter_mut().for_each(|font| {
-                            let size = &mut font.1.size;
-                            if *size >= 2. {
-                                *size -= 1.;
-                            }
-                        });
-                    });
-                }
-            });
-            //ui.heading("Wordle");
-            //ui.label(format!("{:?}", self.current_target));
+                });
+            }
+        });
+        //ui.heading("Wordle");
+        //ui.label(format!("{:?}", self.current_target));
 
-            self.draw_letter_grid(ui);
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                if let Some(error) = &self.error_message {
-                    ui.label(error);
-                }
+        self.draw_letter_grid(ui);
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+            if let Some(error) = &self.error_message {
+                ui.label(error);
+            }
 
-                if let Some(won) = self.game_is_won {
-                    let target: String = self
-                        .current_target
-                        .as_ref()
-                        .map(|x| x.word)
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|x| x.to_ascii_uppercase().to_string())
-                        .collect();
-                    ui.add(
-                        egui::Hyperlink::from_label_and_url(
-                            target,
-                            format!(
-                                "https://de.wiktionary.org/wiki/{}",
-                                self.current_target.as_ref().unwrap().link
-                            ),
-                        )
-                        .open_in_new_tab(true),
-                    );
-                    ui.label("The hidden word was:");
-                    let msg = if won { "You won!" } else { "You lost!" };
-                    if ui.button("New game").clicked() {
-                        self.new_game();
-                    }
-                    ui.label(msg);
-                    ui.label("The game is over!");
-                } else {
-                    self.draw_letter_selection(ui);
+            if let Some(won) = self.game_is_won {
+                let target: String = self
+                    .current_target
+                    .as_ref()
+                    .map(|x| x.word)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|x| x.to_ascii_uppercase().to_string())
+                    .collect();
+                ui.add(
+                    egui::Hyperlink::from_label_and_url(
+                        target,
+                        format!(
+                            "https://de.wiktionary.org/wiki/{}",
+                            self.current_target.as_ref().unwrap().link
+                        ),
+                    )
+                    .open_in_new_tab(true),
+                );
+                ui.label("The hidden word was:");
+                let msg = if won { "You won!" } else { "You lost!" };
+                if ui.button("New game").clicked() {
+                    self.new_game();
                 }
-            });
+                ui.label(msg);
+                ui.label("The game is over!");
+            } else {
+                self.draw_letter_selection(ui);
+            }
         });
     }
 }

@@ -18,7 +18,8 @@ eframe = { version = "0.31.1", features = [
     "x11",
 ] }
 egui = "0.31.1"
-egui_tabs = "0.2.1"
+egui_dock = "0.16.0"
+egui_plot = "0.32.1"
 getrandom = { version = "0.3.3", features = ["wasm_js"] }
 log = "0.4.27"
 rand = { version = "0.9.1", features = ["small_rng"], default-features = false }
