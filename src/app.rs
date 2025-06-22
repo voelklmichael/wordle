@@ -380,13 +380,15 @@ fn possible_words(
     previous_guesses_before_adding: &[Option<PreviousGuessEntry>; 6],
     guess_in_wordlist: &WordWithLink,
 ) -> usize {
-    let mut previous_guesses = vec![&guess_in_wordlist.word];
-    previous_guesses.extend(
-        previous_guesses_before_adding
-            .iter()
-            .filter_map(|x| x.as_ref().map(|x| &x.guess.word)),
-    );
-    let mut possible_words = Vec::new();
+    let previous_guesses = {
+        let mut previous_guesses = vec![&guess_in_wordlist.word];
+        previous_guesses.extend(
+            previous_guesses_before_adding
+                .iter()
+                .filter_map(|x| x.as_ref().map(|x| &x.guess.word)),
+        );
+        previous_guesses
+    };
 
     let correct_letters = {
         let mut correct_letters = [None; CHAR_COUNT];
@@ -410,7 +412,21 @@ fn possible_words(
         }
         incorrect_letters
     };
+    let unused_letters = {
+        let mut unused_letters = vec![];
+        for previous in &previous_guesses {
+            for previous in previous.iter() {
+                if !target.contains(previous) {
+                    unused_letters.push(*previous);
+                }
+            }
+        }
+        unused_letters.sort();
+        unused_letters.dedup();
+        unused_letters
+    };
 
+    let mut possible_words = Vec::new();
     for word in wordlist {
         let word = word.word;
         if !word
@@ -427,9 +443,16 @@ fn possible_words(
                 break;
             }
         }
+        for unused_letter in &unused_letters {
+            if word.contains(unused_letter) {
+                wrong = true;
+                break;
+            }
+        }
         if wrong {
             continue;
         }
+
         possible_words.push(word);
     }
 
