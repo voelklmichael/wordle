@@ -2,6 +2,12 @@ use crate::wordlist::{self, CHAR_COUNT, TargetWord, WordWithLink};
 
 pub const TRY_COUNT: usize = 6;
 
+#[derive(serde::Serialize, serde::Deserialize)]
+struct PreviousGuessEntry {
+    guess: WordWithLink,
+    count: usize,
+}
+
 #[derive(Default, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct WordleAppState {
@@ -11,7 +17,8 @@ pub struct WordleAppState {
     used_targets: std::collections::HashSet<TargetWord>,
     current_target: Option<WordWithLink>,
     current_guess: [Option<char>; CHAR_COUNT],
-    previous_guesses: [Option<WordWithLink>; TRY_COUNT],
+    #[serde(deserialize_with = "previous_guesses_ok_or_default")]
+    previous_guesses: [Option<PreviousGuessEntry>; TRY_COUNT],
     current_selected: usize,
     game_is_won: Option<bool>,
     error_message: Option<String>,
@@ -19,6 +26,19 @@ pub struct WordleAppState {
     statistics: crate::statistics::Statistics,
 }
 
+fn previous_guesses_ok_or_default<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    T: serde::de::DeserializeOwned + Default,
+    D: serde::Deserializer<'de>,
+{
+    match serde::de::Deserialize::deserialize(deserializer) {
+        Ok(v) => {
+            let v: ron::Value = v;
+            Ok(T::deserialize(v).unwrap_or_default())
+        }
+        Err(_) => Ok(T::default()),
+    }
+}
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct WordleApp {
@@ -124,7 +144,7 @@ impl WordleAppState {
 
     fn draw_letter_grid(&mut self, ui: &mut egui::Ui) {
         egui::Grid::new("letter_grid")
-            .num_columns(CHAR_COUNT + 1)
+            .num_columns(CHAR_COUNT + 2)
             .show(ui, |ui| {
                 // previous guesses
                 for previous in &self.previous_guesses {
@@ -138,7 +158,7 @@ impl WordleAppState {
                     let target = target
                         .word
                         .map(|x| x.to_uppercase().into_iter().next().unwrap());
-                    for (&p, t) in previous.word.iter().zip(target) {
+                    for (&p, t) in previous.guess.word.iter().zip(target) {
                         let text = egui::RichText::new(p).family(egui::FontFamily::Monospace);
                         let text = if p == t {
                             text.background_color(egui::Color32::GREEN)
@@ -156,10 +176,11 @@ impl WordleAppState {
                     ui.add(
                         egui::Hyperlink::from_label_and_url(
                             "🏷",
-                            format!("https://de.wiktionary.org/wiki/{}", previous.link),
+                            format!("https://de.wiktionary.org/wiki/{}", previous.guess.link),
                         )
                         .open_in_new_tab(true),
                     );
+                    ui.label(previous.count.to_string());
                     ui.end_row();
                 }
 
@@ -269,7 +290,7 @@ impl WordleAppState {
                         let previous_contains_letter = self
                             .previous_guesses
                             .iter()
-                            .filter_map(|x| x.as_ref().map(|x| x.word.contains(&letter)))
+                            .filter_map(|x| x.as_ref().map(|x| x.guess.word.contains(&letter)))
                             .any(|x| x);
                         let button = if previous_contains_letter {
                             egui::Button::new(
@@ -319,8 +340,17 @@ impl WordleAppState {
         let guess_lowercase =
             guess.map(|x| x.to_ascii_uppercase().to_string().chars().next().unwrap());
         if let Some(guess_in_wordlist) = self.wordlist.iter().find(|x| x.word == guess_lowercase) {
+            let possible_words = possible_words(
+                &self.wordlist,
+                &self.current_target.as_ref().unwrap().word,
+                &self.previous_guesses,
+                guess_in_wordlist,
+            );
             if let Some(entry) = self.previous_guesses.iter_mut().find(|x| x.is_none()) {
-                *entry = Some(guess_in_wordlist.clone());
+                *entry = Some(PreviousGuessEntry {
+                    guess: guess_in_wordlist.clone(),
+                    count: possible_words,
+                });
             } else {
                 panic!("This should never happen!")
             }
@@ -342,6 +372,68 @@ impl WordleAppState {
             self.error_message = Some("Word is not contained in wordlist!".into());
         }
     }
+}
+
+fn possible_words(
+    wordlist: &[WordWithLink],
+    target: &TargetWord,
+    previous_guesses_before_adding: &[Option<PreviousGuessEntry>; 6],
+    guess_in_wordlist: &WordWithLink,
+) -> usize {
+    let mut previous_guesses = vec![&guess_in_wordlist.word];
+    previous_guesses.extend(
+        previous_guesses_before_adding
+            .iter()
+            .filter_map(|x| x.as_ref().map(|x| &x.guess.word)),
+    );
+    let mut possible_words = Vec::new();
+
+    let correct_letters = {
+        let mut correct_letters = [None; CHAR_COUNT];
+        for (index, target) in target.iter().enumerate() {
+            if previous_guesses.iter().any(|x| &x[index] == target) {
+                correct_letters[index] = Some(*target);
+            }
+        }
+        correct_letters
+    };
+    let incorrect_letters = {
+        let mut incorrect_letters = vec![];
+        for (target_index, target) in target.iter().enumerate() {
+            for previous in &previous_guesses {
+                for (index, previous) in previous.iter().enumerate() {
+                    if previous == target && target_index != index {
+                        incorrect_letters.push((index, *previous));
+                    }
+                }
+            }
+        }
+        incorrect_letters
+    };
+
+    for word in wordlist {
+        let word = word.word;
+        if !word
+            .into_iter()
+            .zip(&correct_letters)
+            .all(|(word, correct)| correct.unwrap_or(word) == word)
+        {
+            continue;
+        }
+        let mut wrong = false;
+        for (index, incorrect) in &incorrect_letters {
+            if !word.contains(incorrect) || &word[*index] == incorrect {
+                wrong = true;
+                break;
+            }
+        }
+        if wrong {
+            continue;
+        }
+        possible_words.push(word);
+    }
+
+    possible_words.len()
 }
 
 impl eframe::App for WordleApp {
