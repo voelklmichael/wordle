@@ -337,9 +337,9 @@ impl WordleAppState {
             return;
         }
         let guess = self.current_guess.map(|x| x.unwrap());
-        let guess_lowercase =
+        let guess_uppercase =
             guess.map(|x| x.to_ascii_uppercase().to_string().chars().next().unwrap());
-        if let Some(guess_in_wordlist) = self.wordlist.iter().find(|x| x.word == guess_lowercase) {
+        if let Some(guess_in_wordlist) = self.wordlist.iter().find(|x| x.word == guess_uppercase) {
             let possible_words = possible_words(
                 &self.wordlist,
                 &self.current_target.as_ref().unwrap().word,
@@ -354,7 +354,7 @@ impl WordleAppState {
             } else {
                 panic!("This should never happen!")
             }
-            if guess_lowercase == self.current_target.as_ref().unwrap().word {
+            if guess_uppercase == self.current_target.as_ref().unwrap().word {
                 self.game_is_won = Some(true);
                 self.statistics.game_completed(Some(
                     self.previous_guesses
@@ -377,7 +377,7 @@ impl WordleAppState {
 fn possible_words(
     wordlist: &[WordWithLink],
     target: &TargetWord,
-    previous_guesses_before_adding: &[Option<PreviousGuessEntry>; 6],
+    previous_guesses_before_adding: &[Option<PreviousGuessEntry>],
     guess_in_wordlist: &WordWithLink,
 ) -> usize {
     let previous_guesses = {
@@ -390,66 +390,48 @@ fn possible_words(
         previous_guesses
     };
 
-    let correct_letters = {
-        let mut correct_letters = [None; CHAR_COUNT];
-        for (index, target) in target.iter().enumerate() {
-            if previous_guesses.iter().any(|x| &x[index] == target) {
-                correct_letters[index] = Some(*target);
-            }
-        }
-        correct_letters
-    };
-    let incorrect_letters = {
-        let mut incorrect_letters = vec![];
-        for (target_index, target) in target.iter().enumerate() {
-            for previous in &previous_guesses {
-                for (index, previous) in previous.iter().enumerate() {
-                    if previous == target && target_index != index {
-                        incorrect_letters.push((index, *previous));
-                    }
+    let (not_occurring, correct_position, incorrect_position) = {
+        let mut not_occurring = Vec::new();
+        let mut correct_position = [None; CHAR_COUNT];
+        let mut incorrect_position = Vec::new();
+        for (previous_index, &previous) in
+            previous_guesses.iter().flat_map(|p| p.iter().enumerate())
+        {
+            if target.contains(&previous) {
+                if target[previous_index] == previous {
+                    correct_position[previous_index] = Some(previous);
+                } else {
+                    incorrect_position.push((previous_index, previous));
                 }
+            } else {
+                not_occurring.push(previous)
             }
         }
-        incorrect_letters
-    };
-    let unused_letters = {
-        let mut unused_letters = vec![];
-        for previous in &previous_guesses {
-            for previous in previous.iter() {
-                if !target.contains(previous) {
-                    unused_letters.push(*previous);
-                }
-            }
-        }
-        unused_letters.sort();
-        unused_letters.dedup();
-        unused_letters
+        not_occurring.sort();
+        not_occurring.dedup();
+        incorrect_position.sort();
+        incorrect_position.dedup();
+        (not_occurring, correct_position, incorrect_position)
     };
 
     let mut possible_words = Vec::new();
     for word in wordlist {
         let word = word.word;
-        if !word
-            .into_iter()
-            .zip(&correct_letters)
-            .all(|(word, correct)| correct.unwrap_or(word) == word)
+        if word.iter().any(|c| not_occurring.contains(c)) {
+            continue;
+        }
+        if correct_position
+            .iter()
+            .zip(word.into_iter())
+            .filter_map(|(c, w)| c.map(|c| (c, w)))
+            .any(|(c, w)| c != w)
         {
             continue;
         }
-        let mut wrong = false;
-        for (index, incorrect) in &incorrect_letters {
-            if !word.contains(incorrect) || &word[*index] == incorrect {
-                wrong = true;
-                break;
-            }
-        }
-        for unused_letter in &unused_letters {
-            if word.contains(unused_letter) {
-                wrong = true;
-                break;
-            }
-        }
-        if wrong {
+        if !incorrect_position
+            .iter()
+            .all(|(index, incorrect)| word.contains(incorrect) && word[*index] != *incorrect)
+        {
             continue;
         }
 
@@ -457,6 +439,138 @@ fn possible_words(
     }
 
     possible_words.len()
+}
+
+#[test]
+fn test_possible_words() {
+    let wordlist = crate::wordlist::wordlist_german();
+    assert_eq!(
+        75,
+        possible_words(&wordlist, &['U', 'M', 'B', 'A', 'U'], &[], &WordWithLink {
+            link: Default::default(),
+            word: ['A', 'U', 'T', 'O', 'R'],
+        })
+    );
+    assert_eq!(
+        20,
+        possible_words(
+            &wordlist,
+            &['U', 'M', 'B', 'A', 'U'],
+            &[Some(PreviousGuessEntry {
+                guess: WordWithLink {
+                    link: Default::default(),
+                    word: ['A', 'U', 'T', 'O', 'R'],
+                },
+                count: 0
+            })],
+            &WordWithLink {
+                link: Default::default(),
+                word: ['K', 'L', 'E', 'I', 'D'],
+            }
+        )
+    );
+    assert_eq!(
+        1,
+        possible_words(
+            &wordlist,
+            &['U', 'M', 'B', 'A', 'U'],
+            &[
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['A', 'U', 'T', 'O', 'R'],
+                    },
+                    count: 0
+                }),
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['K', 'L', 'E', 'I', 'D'],
+                    },
+                    count: 0
+                })
+            ],
+            &WordWithLink {
+                link: Default::default(),
+                word: ['S', 'C', 'H', 'A', 'U'],
+            }
+        )
+    );
+    assert_eq!(
+        1,
+        possible_words(
+            &wordlist,
+            &['U', 'M', 'B', 'A', 'U'],
+            &[
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['A', 'U', 'T', 'O', 'R'],
+                    },
+                    count: 0
+                }),
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['K', 'L', 'E', 'I', 'D'],
+                    },
+                    count: 0
+                }),
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['S', 'C', 'H', 'A', 'U'],
+                    },
+                    count: 0
+                })
+            ],
+            &WordWithLink {
+                link: Default::default(),
+                word: ['M', 'A', 'N', 'A', 'A'],
+            }
+        )
+    );
+    assert_eq!(
+        1,
+        possible_words(
+            &wordlist,
+            &['U', 'M', 'B', 'A', 'U'],
+            &[
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['A', 'U', 'T', 'O', 'R'],
+                    },
+                    count: 0
+                }),
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['K', 'L', 'E', 'I', 'D'],
+                    },
+                    count: 0
+                }),
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['S', 'C', 'H', 'A', 'U'],
+                    },
+                    count: 0
+                }),
+                Some(PreviousGuessEntry {
+                    guess: WordWithLink {
+                        link: Default::default(),
+                        word: ['M', 'A', 'N', 'A', 'A'],
+                    },
+                    count: 0
+                })
+            ],
+            &WordWithLink {
+                link: Default::default(),
+                word: ['U', 'M', 'B', 'A', 'U'],
+            }
+        )
+    );
 }
 
 impl eframe::App for WordleApp {
