@@ -437,6 +437,8 @@ fn possible_words(
 
         possible_words.push(word);
     }
+    possible_words.sort();
+    possible_words.dedup();
 
     possible_words.len()
 }
