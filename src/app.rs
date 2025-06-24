@@ -625,10 +625,7 @@ impl WordleAppState {
         }
 
         egui::menu::bar(ui, |ui| {
-            egui::widgets::global_theme_preference_switch(ui);
-            if ui.button("New Game").clicked() {
-                self.new_game()
-            }
+            egui::widgets::global_theme_preference_switch(ui);            
             if ui.button("+").clicked() {
                 self.font_size_adjustment += 1.;
                 ui.ctx().style_mut(|style| {
