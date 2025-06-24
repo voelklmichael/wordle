@@ -263,7 +263,25 @@ impl WordleAppState {
             .show_separator_line(false)
             .show_inside(ui, |ui| {
                 ui.centered_and_justified(|ui| {
-                    if ui.button("⮨").clicked() {
+                    let word_is_legal = {
+                        if self.current_guess.iter().any(|x| x.is_none()) {
+                            false
+                        } else {
+                            let guess = self.current_guess.map(|x| x.unwrap());
+                            let guess_uppercase = guess.map(|x| {
+                                x.to_ascii_uppercase().to_string().chars().next().unwrap()
+                            });
+                            self.wordlist
+                                .iter()
+                                .find(|x| x.word == guess_uppercase)
+                                .is_some()
+                        }
+                    };
+                    if ui
+                        .add_enabled_ui(word_is_legal, |ui| ui.button("⮨"))
+                        .inner
+                        .clicked()
+                    {
                         self.letter_enter_current_word();
                     }
                 });
@@ -333,7 +351,6 @@ impl WordleAppState {
     fn letter_enter_current_word(&mut self) {
         self.error_message = None;
         if self.current_guess.iter().any(|x| x.is_none()) {
-            dbg!("This should never be allowed");
             return;
         }
         let guess = self.current_guess.map(|x| x.unwrap());
