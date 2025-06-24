@@ -69,6 +69,9 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
     fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
         false
     }
+    fn scroll_bars(&self, _tab: &Self::Tab) -> [bool; 2] {
+        [false, false]
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -603,7 +606,12 @@ impl eframe::App for WordleApp {
             .style(egui_dock::Style::from_egui(ctx.style().as_ref()))
             .draggable_tabs(false)
             .show_add_buttons(false)
+            .show_close_buttons(false)
+            .show_add_popup(false)
+            .show_leaf_close_all_buttons(false)
             .show_leaf_collapse_buttons(false)
+            .show_secondary_button_hint(false)
+            .show_tab_name_on_hover(false)
             .show(ctx, &mut TabViewer { state });
     }
 }
